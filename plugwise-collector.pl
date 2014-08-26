@@ -5,7 +5,10 @@ use warnings;
 use Device::Plugwise;
 
 my $TIMEOUT = 60;
-
+my $DATABASE = "plugwise";
+my $DBHOST = "localhost";
+my $DBUSER = "boutserin";
+my $DBPPASSWORD = "bouh";
 
 ############################# fichier dbutils que j'arrive pas à importer
 use DBI;
@@ -25,7 +28,7 @@ sub initdb {
 
 # connecte à la base de donner et retourne le connecteur
 sub connecttodb {
-  return DBI->connect("DBI:mysql:database=plugwise;host=localhost", "boutserin", "bouh");
+  return DBI->connect("DBI:mysql:database=$DATABASE;host=$DBHOST", $DBUSER, $DBPPASSWORD);
 #    or die "Cannot connect: " . $DBI::errstr;
 }
 
@@ -263,6 +266,8 @@ if($function =~ /collect/){
   my $address = $ARGV[1];
   print "not implemented yet\n";
 #  removecircle();
+}else{
+  print "this function does not exists\n";
 }
 
 
