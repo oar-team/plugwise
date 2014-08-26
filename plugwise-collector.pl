@@ -11,7 +11,7 @@ my $TIMEOUT = 60;
 use DBI;
 
 # (re)initialise la base de données
-sub initbdd {
+sub initdb {
   my $dbh = connecttodb();
   $dbh->do("DROP TABLE IF EXISTS record, recordset, circle, monitoredentity, childentity");
   $dbh->do("CREATE TABLE IF NOT EXISTS record (circleaddress VARCHAR(10), date DATETIME, value FLOAT, recdate DATETIME, PRIMARY KEY (circleaddress, date))");
@@ -47,9 +47,14 @@ sub record {
 # créer un nouveau circle dans la bdd
 sub createcircle {
   my $circle = shift(@_);
+  my $name = shift(@_);
+
+  if(!defined $name){
+    $name = $circle;
+  }
 
   my $dbh = connecttodb();
-  $dbh->do("INSERT INTO circle (name, address) VALUES('$circle', '$circle')");
+  $dbh->do("INSERT INTO circle (name, address) VALUES('$name', '$circle')");
   $dbh->disconnect();
 }
 
@@ -169,35 +174,37 @@ sub convertdate {
 
 
 ###################################
+# Fonctions du programme
+###################################
 
-my $plugwise = Device::Plugwise->new(device => '/dev/ttyUSB0');
+# collecte toutes les valeures non enregistrées dans la bdd pour les circles existants dans la bdd
+sub collect{
 
-#initbdd();
+  my $plugwise = Device::Plugwise->new(device => '/dev/ttyUSB0');
 
-# début
-## il faut faire la liste des circle à récupérer
-#my $circle = '7291CD';
-my $circles = getcircleslist();
-if($circles->[0] == 0){
-  return 0;
-}
-
-
+  # début
+  ## il faut faire la liste des circle à récupérer
+  my $circles = getcircleslist();
+  if($circles->[0] == 0){
+    return 0;
+  }
 
 
-for my $refcircle (@$circles){
-print "circle is $$refcircle{'address'}\n";
-  my $circle = $$refcircle{'address'};
 
-### voir le statut pour récupérer l'index
-  $plugwise->command('status', $circle);
-  my $message = $plugwise->read($TIMEOUT);
-#print $message->{"body"}[6], ":", $message->{"body"}[7], "\n";
-  my $lastindex = $message->{"body"}[7];
-  print "lastindex = $lastindex\n";
-### la date doit être convertie
-  my $recdate = convertdate($message->{"body"}[9]);
-  print "recdate : ", $recdate, "\n";
+
+  for my $refcircle (@$circles){
+  print "circle is $$refcircle{'address'}\n";
+    my $circle = $$refcircle{'address'};
+
+  ### voir le statut pour récupérer l'index
+    $plugwise->command('status', $circle);
+    my $message = $plugwise->read($TIMEOUT);
+  #print $message->{"body"}[6], ":", $message->{"body"}[7], "\n";
+    my $lastindex = $message->{"body"}[7];
+    print "lastindex = $lastindex\n";
+  ### la date doit être convertie
+    my $recdate = convertdate($message->{"body"}[9]);
+    print "recdate : ", $recdate, "\n";
 
 
 #print $message->{"schema"}, "\n";
@@ -205,34 +212,59 @@ print "circle is $$refcircle{'address'}\n";
 #  print $_, "\n";
 #}
 
-### voir la base de données pour connaître le dernier index enregistré
-  my $dbindex = checkcircle($circle);
-print "dbindex = $dbindex\n";
+  ### voir la base de données pour connaître le dernier index enregistré
+    my $dbindex = checkcircle($circle);
+    print "dbindex = $dbindex\n";
 
-##### si le circle n'existe pas, l'ajouter ### n'a plus de sens, le circle doit s'ajouter à la main
-#  if($dbindex < -1){
-#   createcircle($circle); 
-#  }
+  ##### si le circle n'existe pas, l'ajouter ### n'a plus de sens, le circle doit s'ajouter à la main
+  #  if($dbindex < -1){
+  #   createcircle($circle); 
+  #  }
 
-### journaliser tous les index à enregistrer
+  ### journaliser tous les index à enregistrer
 
 
-### récupérer les index nécessaires
-  for(my $i = $dbindex+1;$i < $lastindex;$i++){
-    $plugwise->command('history', $circle, $i);
-    $message = $plugwise->read($TIMEOUT);
+  ### récupérer les index nécessaires
+    for(my $i = $dbindex+1;$i < $lastindex;$i++){
+      $plugwise->command('history', $circle, $i);
+      $message = $plugwise->read($TIMEOUT);
 
-### enregistrer les index récupérés
-    if(convertdate($message->{"body"}[9]) !~ /0000-00-00 00:00:00/){
-      record($message->{"body"}[1], convertdate($message->{"body"}[9]), $message->{"body"}[5], $recdate);
+  ### enregistrer les index récupérés
+      if(convertdate($message->{"body"}[9]) !~ /0000-00-00 00:00:00/){
+        record($message->{"body"}[1], convertdate($message->{"body"}[9]), $message->{"body"}[5], $recdate);
+      }
     }
+
+  ### mettre à jour circle.historyindex
+    updatehistoryindex($circle, $lastindex-1);
   }
 
-### mettre à jour circle.historyindex
-  updatehistoryindex($circle, $lastindex-1);
+  # fin
 }
 
-# fin
+###################################
+# Programme
+###################################
+
+# traitement des paramètres
+my $function = $ARGV[0];
+
+print "paramètre = $function\n";
+if($function =~ /collect/){
+  collect();
+}elsif($function =~ /resetdb/){
+  initdb();
+}elsif($function =~ /addcircle/){
+  my $circleaddress = $ARGV[1];
+  my $name = $ARGV[2];
+  print "not implemented yet\n";
+#  createcircle();
+}elsif($function =~ /removecircle/){
+  my $address = $ARGV[1];
+  print "not implemented yet\n";
+#  removecircle();
+}
+
 
 
 
