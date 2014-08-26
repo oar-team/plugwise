@@ -117,7 +117,7 @@ sub checkcircle {
   my $blob = selectfromdb($stmt);
 
   if(defined $blob->[0] ){
-print "$circle 's historyindex = ", $$blob[0]{'historyindex'}, "\n";
+#print "$circle 's historyindex = ", $$blob[0]{'historyindex'}, "\n";
 
     return $$blob[0]{'historyindex'};
   }else{
@@ -144,7 +144,7 @@ sub getcircleslist {
   if(defined $blob->[0] ){
     return $blob;
   }else{
-print "No circle found.";
+    print "No circle found.";
     return 0;
   }
 
@@ -196,7 +196,7 @@ sub collect{
 
 
   for my $refcircle (@$circles){
-  print "circle is $$refcircle{'address'}\n";
+#  print "circle is $$refcircle{'address'}\n";
     my $circle = $$refcircle{'address'};
 
   ### voir le statut pour récupérer l'index
@@ -204,10 +204,10 @@ sub collect{
     my $message = $plugwise->read($TIMEOUT);
   #print $message->{"body"}[6], ":", $message->{"body"}[7], "\n";
     my $lastindex = $message->{"body"}[7];
-    print "lastindex = $lastindex\n";
+#    print "lastindex = $lastindex\n";
   ### la date doit être convertie
     my $recdate = convertdate($message->{"body"}[9]);
-    print "recdate : ", $recdate, "\n";
+#    print "recdate : ", $recdate, "\n";
 
 
 #print $message->{"schema"}, "\n";
@@ -217,7 +217,7 @@ sub collect{
 
   ### voir la base de données pour connaître le dernier index enregistré
     my $dbindex = checkcircle($circle);
-    print "dbindex = $dbindex\n";
+#    print "dbindex = $dbindex\n";
 
   ##### si le circle n'existe pas, l'ajouter ### n'a plus de sens, le circle doit s'ajouter à la main
   #  if($dbindex < -1){
@@ -252,11 +252,13 @@ sub collect{
 # traitement des paramètres
 my $function = $ARGV[0];
 
-print "paramètre = $function\n";
+print "requesting $function\n";
 if($function =~ /collect/){
   collect();
+  print "values collected\n";
 }elsif($function =~ /resetdb/){
   initdb();
+  print "DB reseted\n"
 }elsif($function =~ /addcircle/){
   my $circleaddress = $ARGV[1];
   my $name = $ARGV[2];
