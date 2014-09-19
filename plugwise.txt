@@ -1,0 +1,11 @@
+# liste des modules à interroger
+
+# clef
+000D6F000075BEED
+
+# circle +
+000D6F0001A5A0FD
+
+# circle test
+000D6F0001A5A5FD
+

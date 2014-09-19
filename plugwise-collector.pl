@@ -17,11 +17,11 @@ use DBI;
 sub initdb {
   my $dbh = connecttodb();
   $dbh->do("DROP TABLE IF EXISTS record, recordset, circle, monitoredentity, childentity");
-  $dbh->do("CREATE TABLE IF NOT EXISTS record (circleaddress VARCHAR(10), date DATETIME, value FLOAT, recdate DATETIME, PRIMARY KEY (circleaddress, date))");
+  $dbh->do("CREATE TABLE IF NOT EXISTS record (circleaddress VARCHAR(16), date DATETIME, value FLOAT, recdate DATETIME, PRIMARY KEY (circleaddress, date))");
   $dbh->do("CREATE TABLE IF NOT EXISTS monitoredentity (id INTEGER AUTO_INCREMENT UNIQUE PRIMARY KEY, name VARCHAR(20))");
-  $dbh->do("CREATE TABLE IF NOT EXISTS circle (name VARCHAR(20), address VARCHAR(10) PRIMARY KEY, historyindex INTEGER DEFAULT -1)");
+  $dbh->do("CREATE TABLE IF NOT EXISTS circle (name VARCHAR(20), address VARCHAR(16) PRIMARY KEY, historyindex INTEGER DEFAULT -1)");
   $dbh->do("CREATE TABLE IF NOT EXISTS childentity (parent VARCHAR(20), child VARCHAR(20), PRIMARY KEY (parent, child))");
-  $dbh->do("CREATE TABLE IF NOT EXISTS recordset (circleaddress VARCHAR(10), monitoredentityid INTEGER, begining DATETIME, end DATETIME DEFAULT null, PRIMARY KEY (circleaddress, monitoredentityid, begining))");
+  $dbh->do("CREATE TABLE IF NOT EXISTS recordset (circleaddress VARCHAR(16), monitoredentityid INTEGER, begining DATETIME, end DATETIME DEFAULT null, PRIMARY KEY (circleaddress, monitoredentityid, begining))");
   $dbh->disconnect();
 }
 
@@ -141,11 +141,11 @@ sub getcircleslist {
 
   my $blob = selectfromdb($stmt);
 
-  if(defined $blob->[0] ){
-    return $blob;
-  }else{
+  if($blob->[0] =~ /no_data/ ){
     print "No circle found.";
     return 0;
+  }else{
+    return $blob;
   }
 
 
@@ -171,9 +171,16 @@ sub convertdate {
 }
 
 
+# imprimer le message reçu du plugwise
+sub printmessage {
+  my $message = shift(@_);
 
-
-
+  print "message is : $message\n";
+  print $message->{"schema"}, "\n";
+  foreach(@{$message->{"body"}}){
+    print $_, "\n";
+  }
+}
 
 
 ###################################
@@ -184,6 +191,7 @@ sub convertdate {
 sub collect{
 
   my $plugwise = Device::Plugwise->new(device => '/dev/ttyUSB0');
+#  my $plugwise = Device::Plugwise->new(device => 'localhost:9999');
 
   # début
   ## il faut faire la liste des circle à récupérer
@@ -196,24 +204,21 @@ sub collect{
 
 
   for my $refcircle (@$circles){
-#  print "circle is $$refcircle{'address'}\n";
+    print "circle is $$refcircle{'address'}\n";
     my $circle = $$refcircle{'address'};
 
   ### voir le statut pour récupérer l'index
     $plugwise->command('status', $circle);
     my $message = $plugwise->read($TIMEOUT);
-  #print $message->{"body"}[6], ":", $message->{"body"}[7], "\n";
+#  print $message->{"body"}[6], ":", $message->{"body"}[7], "\n";
     my $lastindex = $message->{"body"}[7];
-#    print "lastindex = $lastindex\n";
+    print "lastindex = $lastindex\n";
   ### la date doit être convertie
     my $recdate = convertdate($message->{"body"}[9]);
-#    print "recdate : ", $recdate, "\n";
+    print "recdate : ", $recdate, "\n";
 
-
-#print $message->{"schema"}, "\n";
-#foreach(@{$message->{"body"}}){
-#  print $_, "\n";
-#}
+print "status message :\n";
+printmessage($message);
 
   ### voir la base de données pour connaître le dernier index enregistré
     my $dbindex = checkcircle($circle);
@@ -229,12 +234,20 @@ sub collect{
 
   ### récupérer les index nécessaires
     for(my $i = $dbindex+1;$i < $lastindex;$i++){
+#$plugwise->command('history', "000D6F0001A5A5FD", $i);
       $plugwise->command('history', $circle, $i);
       $message = $plugwise->read($TIMEOUT);
 
+
+      if($message !~ /no_data/){
+print "history message :\n";
+printmessage($message);
   ### enregistrer les index récupérés
-      if(convertdate($message->{"body"}[9]) !~ /0000-00-00 00:00:00/){
-        record($message->{"body"}[1], convertdate($message->{"body"}[9]), $message->{"body"}[5], $recdate);
+        if(convertdate($message->{"body"}[9]) !~ /0000-00-00 00:00:00/){
+          record($message->{"body"}[1], convertdate($message->{"body"}[9]), $message->{"body"}[5], $recdate);
+        }
+      }else {
+        print "no_data for index $i\n";
       }
     }
 
