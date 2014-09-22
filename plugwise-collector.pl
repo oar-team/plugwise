@@ -8,7 +8,7 @@ my $TIMEOUT = 60;
 my $DATABASE = "plugwise";
 my $DBHOST = "localhost";
 my $DBUSER = "boutserin";
-my $DBPPASSWORD = "bouh";
+my $DBPASSWORD = "bouh";
 
 ############################# fichier dbutils que j'arrive pas à importer
 use DBI;
@@ -26,9 +26,9 @@ sub initdb {
 }
 
 
-# connecte à la base de donner et retourne le connecteur
+# connecte à la base de données et retourne le connecteur
 sub connecttodb {
-  return DBI->connect("DBI:mysql:database=$DATABASE;host=$DBHOST", $DBUSER, $DBPPASSWORD);
+  return DBI->connect("DBI:mysql:database=$DATABASE;host=$DBHOST", $DBUSER, $DBPASSWORD);
 #    or die "Cannot connect: " . $DBI::errstr;
 }
 
@@ -85,6 +85,7 @@ sub createentity {
 
 # envoie un select à mysql et retourne le résultat
 # Le résultat est une référence sur un tableau avec sur chaque ligne une référence sur un hash contenant les noms du champ en clefs associées à leur valeur
+# une ligne du tableau est une ligne de la bdd, et sur chaque ligne, un hash contient l'ensemble des champs retournées par la requête (le hash donne les colonnes)
 sub selectfromdb {
   my $stmt = shift(@_);
   my $results = [];
@@ -153,6 +154,7 @@ sub getcircleslist {
 
 #################################
 
+# convertit la date du format plugwise (AAAAMMJJHHMM) au format mysql (AAAA-MM-JJ HH:MM:SS)
 sub convertdate {
   my $date = shift(@_);
 
@@ -187,7 +189,7 @@ sub printmessage {
 # Fonctions du programme
 ###################################
 
-# collecte toutes les valeures non enregistrées dans la bdd pour les circles existants dans la bdd
+# collecte toutes les valeures non enregistrées dans la bdd pour tous les circles présents dans la bdd
 sub collect{
 
   my $plugwise = Device::Plugwise->new(device => '/dev/ttyUSB0');
@@ -202,12 +204,12 @@ sub collect{
 
 
 
-
+  # Pour chaque circle, on récupère les info si on ne les a pas
   for my $refcircle (@$circles){
     print "circle is $$refcircle{'address'}\n";
     my $circle = $$refcircle{'address'};
 
-  ### voir le statut pour récupérer l'index
+  ### voir le statut pour récupérer l'index (la dernière valeur enregistrée du circle)
     $plugwise->command('status', $circle);
     my $message = $plugwise->read($TIMEOUT);
 #  print $message->{"body"}[6], ":", $message->{"body"}[7], "\n";
@@ -220,11 +222,11 @@ sub collect{
 print "status message :\n";
 printmessage($message);
 
-  ### voir la base de données pour connaître le dernier index enregistré
+  ### voir la base de données pour connaître le dernier index enregistré (index de la dernière entrée du circle qu'on a enregistré)
     my $dbindex = checkcircle($circle);
 #    print "dbindex = $dbindex\n";
 
-  ##### si le circle n'existe pas, l'ajouter ### n'a plus de sens, le circle doit s'ajouter à la main
+  ##### si le circle n'existe pas, l'ajouter ### !!!!!!!!!!!!!!!!!! n'a plus de sens, le circle doit s'ajouter à la main
   #  if($dbindex < -1){
   #   createcircle($circle); 
   #  }
@@ -232,7 +234,7 @@ printmessage($message);
   ### journaliser tous les index à enregistrer
 
 
-  ### récupérer les index nécessaires
+  ### récupérer les index nécessaires (la collecte proprement dite)
     for(my $i = $dbindex+1;$i < $lastindex;$i++){
 #$plugwise->command('history', "000D6F0001A5A5FD", $i);
       $plugwise->command('history', $circle, $i);
@@ -282,7 +284,11 @@ if($function =~ /collect/){
   print "not implemented yet\n";
 #  removecircle();
 }else{
-  print "this function does not exists\n";
+  print "this function does not exists\n\n";
+
+  print "to collect data, give 'collect' as argument of the script\n";
+  print "to reset the database, give 'resetdb' as argument of the script\n";
+  print "circle need to be added in the db manualy for the collect to work\n";
 }
 
 
