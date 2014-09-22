@@ -1,0 +1,8 @@
+-- initialisation bdd
+
+CREATE TABLE IF NOT EXISTS record;
+CREATE TABLE IF NOT EXISTS group;
+CREATE TABLE IF NOT EXISTS circle;
+
+
+
